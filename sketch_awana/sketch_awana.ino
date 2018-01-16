@@ -121,7 +121,7 @@ void setup()
 	if (!SD.exists(dataFilename)) {
 		File dataFile = SD.open(dataFilename, FILE_WRITE);
 		if (dataFile) {
-			dataFile.println("date,car,test,start,mid,mid_len,end,end_len");
+			dataFile.print("date,car,test,start,mid,mid_len,end,end_len\n");
 			dataFile.close();
 		}
 	}
@@ -158,8 +158,8 @@ void loop() {
 		lcd.print(messageBuffer);
 		File dataFile = SD.open(dataFilename, FILE_WRITE);
 		if (dataFile) {
-			sprintf(endInfoBuffer, "%s,%s,%ld,%s", startInfoBuffer, midInfoBuffer, end_02_millis, dtostrf(seconds, 4, 3, floatBuffer));
-			dataFile.println(endInfoBuffer);
+			sprintf(endInfoBuffer, "%s,%s,%ld,%s\n", startInfoBuffer, midInfoBuffer, end_02_millis, dtostrf(seconds, 4, 3, floatBuffer));
+			dataFile.print(endInfoBuffer);
 			dataFile.close();
 		}
 		handledEnd = true;
