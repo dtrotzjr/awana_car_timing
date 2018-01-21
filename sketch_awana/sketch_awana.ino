@@ -14,8 +14,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 void start_00_timing();
 void mid_01_timing();
-void end_02_timing();
-
+void mid_02_timing();
+void end_03_timing();
 
 ////////////////////////////////////////////////////////////////////////////////
 // Global Variables 
@@ -26,6 +26,7 @@ RTC_DS1307 RTC;
 const int BREAK_SENSOR_00_INTERRUPT_PIN = 18;
 const int BREAK_SENSOR_01_INTERRUPT_PIN = 19;
 const int BREAK_SENSOR_02_INTERRUPT_PIN = 2;
+const int BREAK_SENSOR_03_INTERRUPT_PIN = 3;
 
 const int SD_CARD_CHIP_SELECT           = 53;
 
@@ -46,24 +47,27 @@ int curCarIndex = 0;
 // This board can be run in 8 bit or 4 bit modes. 
 // The bits indicate the width of the datapipe. 
 // 8-bit LCD (we want the added performance of 8 bits)
-LiquidCrystal lcd(12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 14);
+LiquidCrystal lcd(12, 11, 10, 9, 8, 7, 6, 5, 4, 15, 14);
 
 int LCD_BACKLIGHT_PIN   = 13;
 long iter       = 0;
 char dataFilename[256];
 char messageBuffer[64];
 char floatBuffer[16];
-char startInfoBuffer[256] = {0};
-char midInfoBuffer[256] = {0};
-char endInfoBuffer[256] = {0};
+char startInfo00Buffer[256] = {0};
+char midInfo01Buffer[256] = {0};
+char midInfo02Buffer[256] = {0};
+char endInfo03Buffer[256] = {0};
 
 volatile signed long start_00_millis    = -1;
 volatile signed long mid_01_millis      = -1;
-volatile signed long end_02_millis      = -1;
+volatile signed long mid_02_millis      = -1;
+volatile signed long end_03_millis      = -1;
 
-bool handledStart = false;
-bool handledMid = false;
-bool handledEnd = false;
+bool handledStart00 = false;
+bool handledMid01 = false;
+bool handledMid02 = false;
+bool handledEnd03 = false;
 
 int btnStates[TOTAL_BTNS];
 int lastBtnStates[TOTAL_BTNS];
@@ -78,7 +82,9 @@ void setup()
 	digitalWrite(BREAK_SENSOR_01_INTERRUPT_PIN, HIGH);
 	attachInterrupt(digitalPinToInterrupt(BREAK_SENSOR_01_INTERRUPT_PIN), mid_01_timing, FALLING);
 	digitalWrite(BREAK_SENSOR_02_INTERRUPT_PIN, HIGH);
-	attachInterrupt(digitalPinToInterrupt(BREAK_SENSOR_02_INTERRUPT_PIN), end_02_timing, FALLING);
+	attachInterrupt(digitalPinToInterrupt(BREAK_SENSOR_02_INTERRUPT_PIN), mid_02_timing, FALLING);
+	digitalWrite(BREAK_SENSOR_03_INTERRUPT_PIN, HIGH);
+	attachInterrupt(digitalPinToInterrupt(BREAK_SENSOR_03_INTERRUPT_PIN), end_03_timing, FALLING);
 
 	pinMode(RED_LED_PIN, OUTPUT);
 	pinMode(GRN_LED_PIN, OUTPUT);
@@ -121,7 +127,7 @@ void setup()
 	if (!SD.exists(dataFilename)) {
 		File dataFile = SD.open(dataFilename, FILE_WRITE);
 		if (dataFile) {
-			dataFile.print("date,car,test,start,mid,mid_len,end,end_len\n");
+			dataFile.print("date,car,test,start_00,mid_01,mid_01_len,mid_02,mid_02_len,end_03,end_03_len\n");
 			dataFile.close();
 		}
 	}
@@ -131,39 +137,48 @@ void setup()
 void loop() {
 	checkBtnStates();
 	
-	if(!handledStart && start_00_millis > 0) {
-		lcd.setCursor(13,0);
+	if(!handledStart00 && start_00_millis > 0) {
+		lcd.setCursor(9,0);
 		lcd.print("REC");
 		DateTime now = RTC.now();
-		sprintf(startInfoBuffer, "%02d-%02d-%02d,%s,%d,%ld", now.year(), now.month(), now.day(), CAR_OWNERS[curCarIndex], CAR_OWNERS_TEST_NUMBER[curCarIndex], start_00_millis);
-		handledStart = true;
+		sprintf(startInfo00Buffer, "%02d-%02d-%02d,%s,%d,%ld", now.year(), now.month(), now.day(), CAR_OWNERS[curCarIndex], CAR_OWNERS_TEST_NUMBER[curCarIndex], start_00_millis);
+		handledStart00 = true;
 		digitalWrite(WHT_LED_PIN, HIGH);
 	}
 
-	if(handledStart && !handledMid && mid_01_millis > 0) {
+	if(handledStart00 && !handledMid01 && mid_01_millis > 0) {
 		float seconds = ((((float)mid_01_millis) - ((float)start_00_millis))/(1000.0f));
-		lcd.setCursor(0,1);
-		sprintf(messageBuffer, "M:%s", dtostrf(seconds, 4, 3, floatBuffer));
+		lcd.setCursor(9,0);
+		sprintf(messageBuffer, "A:%s", dtostrf(seconds, 4, 3, floatBuffer));
 		lcd.print(messageBuffer);
-		sprintf(midInfoBuffer, "%ld,%s", mid_01_millis, dtostrf(seconds, 4, 3, floatBuffer));
-		handledMid = true;
+		sprintf(midInfo01Buffer, "%ld,%s", mid_01_millis, dtostrf(seconds, 4, 3, floatBuffer));
+		handledMid01 = true;
 		digitalWrite(WHT_LED_PIN, LOW);
 		digitalWrite(GRN_LED_PIN, HIGH);
 	}
+	
+	if(handledMid01 && !handledMid02 && mid_02_millis > 0) {
+		float seconds = ((((float)mid_02_millis) - ((float)start_00_millis))/(1000.0f));
+		lcd.setCursor(0,1);
+		sprintf(messageBuffer, "B:%s", dtostrf(seconds, 4, 3, floatBuffer));
+		lcd.print(messageBuffer);
+		sprintf(midInfo02Buffer, "%ld,%s", mid_02_millis, dtostrf(seconds, 4, 3, floatBuffer));
+		handledMid02 = true;
+		digitalWrite(GRN_LED_PIN, LOW);
+	}
 
-	if(handledMid && !handledEnd && end_02_millis > 0) {
-		float seconds = ((((float)end_02_millis) - ((float)start_00_millis))/(1000.0f));
+	if(handledMid02 && !handledEnd03 && end_03_millis > 0) {
+		float seconds = ((((float)end_03_millis) - ((float)start_00_millis))/(1000.0f));
 		lcd.setCursor(9,1);
-		sprintf(messageBuffer, "E:%s", dtostrf(seconds, 4, 3, floatBuffer));
+		sprintf(messageBuffer, "C:%s", dtostrf(seconds, 4, 3, floatBuffer));
 		lcd.print(messageBuffer);
 		File dataFile = SD.open(dataFilename, FILE_WRITE);
 		if (dataFile) {
-			sprintf(endInfoBuffer, "%s,%s,%ld,%s\n", startInfoBuffer, midInfoBuffer, end_02_millis, dtostrf(seconds, 4, 3, floatBuffer));
-			dataFile.print(endInfoBuffer);
+			sprintf(endInfo03Buffer, "%s,%s,%s,%ld,%s\n", startInfo00Buffer, midInfo01Buffer, midInfo02Buffer, end_03_millis, dtostrf(seconds, 4, 3, floatBuffer));
+			dataFile.print(endInfo03Buffer);
 			dataFile.close();
 		}
-		handledEnd = true;
-		digitalWrite(GRN_LED_PIN, LOW);
+		handledEnd03 = true;
 		digitalWrite(RED_LED_PIN, HIGH);
 	}
 }
@@ -213,16 +228,18 @@ void resetState(bool resetCar) {
 	
 	if (resetCar) {
 		curCarIndex = 0;
-		resetLCD();
 	}
+	resetLCD();
 
 	start_00_millis    = -1;
 	mid_01_millis      = -1;
-	end_02_millis      = -1;
+	mid_02_millis      = -1;
+	end_03_millis      = -1;
 
-	handledStart = false;
-	handledMid = false;
-	handledEnd = false;
+	handledStart00 = false;
+	handledMid01 = false;
+	handledMid02 = false;
+	handledEnd03 = false;
 }
 
 void switchCar() {
@@ -255,7 +272,11 @@ void mid_01_timing() {
 	mid_01_millis = millis();
 }
 
-void end_02_timing() {
-	end_02_millis = millis();
+void mid_02_timing() {
+	mid_02_millis = millis();
+}
+
+void end_03_timing() {
+	end_03_millis = millis();
 }
 
