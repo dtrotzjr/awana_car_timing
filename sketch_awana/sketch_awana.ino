@@ -129,6 +129,11 @@ void setup()
 		if (dataFile) {
 			dataFile.print("date,car,test,start_00,mid_01,mid_01_len,mid_02,mid_02_len,end_03,end_03_len\n");
 			dataFile.close();
+		} else {
+			lcd.setCursor(0,0);
+			lcd.print("File Error!");
+			lcd.setCursor(0,1);
+			lcd.print(dataFilename);
 		}
 	}
 	resetState(true);
@@ -177,6 +182,11 @@ void loop() {
 			sprintf(endInfo03Buffer, "%s,%s,%s,%ld,%s\n", startInfo00Buffer, midInfo01Buffer, midInfo02Buffer, end_03_millis, dtostrf(seconds, 4, 3, floatBuffer));
 			dataFile.print(endInfo03Buffer);
 			dataFile.close();
+		} else {
+			lcd.setCursor(0,0);
+			lcd.print("File Error!");
+			lcd.setCursor(0,1);
+			lcd.print(dataFilename);
 		}
 		handledEnd03 = true;
 		digitalWrite(RED_LED_PIN, HIGH);
